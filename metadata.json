@@ -1,0 +1,6 @@
+{
+  "name": "Resultify",
+  "description": "A premium GPA and CGPA Calculator app strictly adhering to the GCUF grading criteria, with PDF and Image export and secure local data storage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
