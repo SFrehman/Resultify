@@ -95,6 +95,9 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -349,38 +352,59 @@ fun CalculatorTabScreen(
     onNavigateToGpaResult: () -> Unit,
     onNavigateToCgpaResult: () -> Unit
 ) {
+    val pagerState = rememberPagerState(initialPage = subTab, pageCount = { 2 })
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(subTab) {
+        if (pagerState.currentPage != subTab) {
+            pagerState.animateScrollToPage(subTab)
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        onSubTabChanged(pagerState.currentPage)
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(
-            selectedTabIndex = subTab,
+            selectedTabIndex = pagerState.currentPage,
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[subTab]),
+                    modifier = Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
                     color = MaterialTheme.colorScheme.primary,
                     height = 3.dp
                 )
             }
         ) {
             Tab(
-                selected = subTab == 0,
-                onClick = { onSubTabChanged(0) },
+                selected = pagerState.currentPage == 0,
+                onClick = {
+                    coroutineScope.launch {
+                        pagerState.animateScrollToPage(0)
+                    }
+                },
                 text = {
                     Text(
                         "GPA",
-                        fontWeight = if (subTab == 0) FontWeight.Bold else FontWeight.Normal,
+                        fontWeight = if (pagerState.currentPage == 0) FontWeight.Bold else FontWeight.Normal,
                         fontSize = 16.sp
                     )
                 },
                 modifier = Modifier.testTag("gpa_sub_tab")
             )
             Tab(
-                selected = subTab == 1,
-                onClick = { onSubTabChanged(1) },
+                selected = pagerState.currentPage == 1,
+                onClick = {
+                    coroutineScope.launch {
+                        pagerState.animateScrollToPage(1)
+                    }
+                },
                 text = {
                     Text(
                         "CGPA",
-                        fontWeight = if (subTab == 1) FontWeight.Bold else FontWeight.Normal,
+                        fontWeight = if (pagerState.currentPage == 1) FontWeight.Bold else FontWeight.Normal,
                         fontSize = 16.sp
                     )
                 },
@@ -388,10 +412,15 @@ fun CalculatorTabScreen(
             )
         }
 
-        if (subTab == 0) {
-            GpaCalculatorScreen(viewModel, onNavigateToGpaResult)
-        } else {
-            CgpaCalculatorScreen(viewModel, onNavigateToCgpaResult)
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            if (page == 0) {
+                GpaCalculatorScreen(viewModel, onNavigateToGpaResult)
+            } else {
+                CgpaCalculatorScreen(viewModel, onNavigateToCgpaResult)
+            }
         }
     }
 }
@@ -858,39 +887,65 @@ fun RecordsTabScreen(
     onEditGpa: (GpaRecord) -> Unit,
     onEditCgpa: (CgpaRecord) -> Unit
 ) {
-    var recordsSubTab by remember { mutableIntStateOf(0) } // 0 = GPA, 1 = CGPA
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
+    val coroutineScope = rememberCoroutineScope()
 
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(
-            selectedTabIndex = recordsSubTab,
+            selectedTabIndex = pagerState.currentPage,
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[recordsSubTab]),
+                    modifier = Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
                     color = MaterialTheme.colorScheme.primary,
                     height = 3.dp
                 )
             }
         ) {
             Tab(
-                selected = recordsSubTab == 0,
-                onClick = { recordsSubTab = 0 },
-                text = { Text("GPA Records", fontWeight = FontWeight.Bold, fontSize = 15.sp) },
+                selected = pagerState.currentPage == 0,
+                onClick = {
+                    coroutineScope.launch {
+                        pagerState.animateScrollToPage(0)
+                    }
+                },
+                text = {
+                    Text(
+                        "GPA Records",
+                        fontWeight = if (pagerState.currentPage == 0) FontWeight.Bold else FontWeight.Normal,
+                        fontSize = 15.sp
+                    )
+                },
                 modifier = Modifier.testTag("gpa_records_tab")
             )
             Tab(
-                selected = recordsSubTab == 1,
-                onClick = { recordsSubTab = 1 },
-                text = { Text("CGPA Records", fontWeight = FontWeight.Bold, fontSize = 15.sp) },
+                selected = pagerState.currentPage == 1,
+                onClick = {
+                    coroutineScope.launch {
+                        pagerState.animateScrollToPage(1)
+                    }
+                },
+                text = {
+                    Text(
+                        "CGPA Records",
+                        fontWeight = if (pagerState.currentPage == 1) FontWeight.Bold else FontWeight.Normal,
+                        fontSize = 15.sp
+                    )
+                },
                 modifier = Modifier.testTag("cgpa_records_tab")
             )
         }
 
-        if (recordsSubTab == 0) {
-            GpaRecordsList(viewModel, onEditGpa)
-        } else {
-            CgpaRecordsList(viewModel, onEditCgpa)
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            if (page == 0) {
+                GpaRecordsList(viewModel, onEditGpa)
+            } else {
+                CgpaRecordsList(viewModel, onEditCgpa)
+            }
         }
     }
 }
