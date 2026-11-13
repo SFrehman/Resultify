@@ -28,11 +28,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -333,6 +335,8 @@ fun MainDashboard(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
+                .imePadding()
         ) {
             when (activeTab) {
                 0 -> CalculatorTabScreen(
@@ -675,6 +679,8 @@ fun GpaCalculatorScreen(
             ) {
                 Text("Calculate GPA", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -894,6 +900,8 @@ fun CgpaCalculatorScreen(
             ) {
                 Text("Calculate CGPA", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -1597,7 +1605,11 @@ fun InfoScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Go back",
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
             Text(
                 "Resultify Info",
@@ -1864,7 +1876,11 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Go back",
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
             Text(
                 "Settings",
