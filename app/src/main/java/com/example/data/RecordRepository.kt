@@ -24,6 +24,16 @@ class RecordRepository(private val recordDao: RecordDao) {
         recordDao.deleteCgpaRecordById(id)
     }
 
+    val allNotes: Flow<List<NoteRecord>> = recordDao.getAllNotes()
+
+    suspend fun insertNote(note: NoteRecord) {
+        recordDao.insertNote(note)
+    }
+
+    suspend fun deleteNoteById(id: Int) {
+        recordDao.deleteNoteById(id)
+    }
+
     suspend fun clearAllData() {
         recordDao.clearAllData()
     }

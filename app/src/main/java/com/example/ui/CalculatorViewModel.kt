@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.CgpaRecord
 import com.example.data.GpaRecord
 import com.example.data.GradeCalculation
+import com.example.data.NoteRecord
 import com.example.data.RecordRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -47,6 +48,9 @@ class CalculatorViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val cgpaRecords: StateFlow<List<CgpaRecord>> = repository.allCgpaRecords
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val notes: StateFlow<List<NoteRecord>> = repository.allNotes
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // -------------------------------------------------------------
@@ -280,6 +284,32 @@ class CalculatorViewModel(
     fun deleteCgpaRecord(id: Int) {
         viewModelScope.launch {
             repository.deleteCgpaById(id)
+        }
+    }
+
+    // -------------------------------------------------------------
+    // KEEP IN MIND NOTES STATE & LOGIC
+    // -------------------------------------------------------------
+    fun saveNote(title: String, content: String, existingId: Int = 0) {
+        val trimmedTitle = title.trim()
+        val trimmedContent = content.trim()
+        if (trimmedTitle.isEmpty() || trimmedContent.isEmpty()) return
+
+        viewModelScope.launch {
+            repository.insertNote(
+                NoteRecord(
+                    id = existingId,
+                    title = trimmedTitle,
+                    content = trimmedContent,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    fun deleteNote(id: Int) {
+        viewModelScope.launch {
+            repository.deleteNoteById(id)
         }
     }
 

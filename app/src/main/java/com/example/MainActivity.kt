@@ -12,9 +12,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -46,6 +49,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -128,6 +132,7 @@ import com.example.data.GpaRecord
 import com.example.data.GradeCalculation
 import com.example.data.RecordRepository
 import com.example.ui.CalculatorViewModel
+import com.example.ui.NotesTabScreen
 import com.example.utils.Exporter
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -309,6 +314,18 @@ fun MainDashboard(
                     ),
                     modifier = Modifier.testTag("records_tab")
                 )
+                NavigationBarItem(
+                    selected = activeTab == 2,
+                    onClick = { activeTab = 2 },
+                    icon = { Icon(Icons.Default.EditNote, contentDescription = "Keep in Mind") },
+                    label = { Text("Keep in Mind", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Color.White,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.testTag("notes_tab")
+                )
             }
         }
     ) { innerPadding ->
@@ -317,16 +334,15 @@ fun MainDashboard(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            if (activeTab == 0) {
-                CalculatorTabScreen(
+            when (activeTab) {
+                0 -> CalculatorTabScreen(
                     viewModel = viewModel,
                     subTab = subTab,
                     onSubTabChanged = { subTab = it },
                     onNavigateToGpaResult = onNavigateToGpaResult,
                     onNavigateToCgpaResult = onNavigateToCgpaResult
                 )
-            } else {
-                RecordsTabScreen(
+                1 -> RecordsTabScreen(
                     viewModel = viewModel,
                     onEditGpa = { gpaRecord ->
                         viewModel.prefillGpaRecord(gpaRecord)
@@ -339,6 +355,7 @@ fun MainDashboard(
                         subTab = 1
                     }
                 )
+                else -> NotesTabScreen(viewModel = viewModel)
             }
         }
     }
@@ -1020,12 +1037,17 @@ fun GpaRecordsList(viewModel: CalculatorViewModel, onEditGpa: (GpaRecord) -> Uni
         ) {
             itemsIndexed(gpaRecordsList) { _, record ->
                 val isExpanded = expandedCardId == record.id
-                val dateStr = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(java.util.Date(record.timestamp))
+                val dateStr = remember(record.timestamp) {
+                    java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(java.util.Date(record.timestamp))
+                }
 
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 8.dp)
+                        .clickable {
+                            expandedCardId = if (isExpanded) null else record.id
+                        },
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -1036,19 +1058,15 @@ fun GpaRecordsList(viewModel: CalculatorViewModel, onEditGpa: (GpaRecord) -> Uni
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = record.name,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = dateStr,
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
-                            }
+                            Text(
+                                text = record.name,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = if (isExpanded) 2 else 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
                             Row {
                                 IconButton(onClick = { onEditGpa(record) }) {
                                     Icon(
@@ -1075,93 +1093,102 @@ fun GpaRecordsList(viewModel: CalculatorViewModel, onEditGpa: (GpaRecord) -> Uni
                             }
                         }
 
-                        // Display simplified preview or fully expanded table
-                        if (!isExpanded) {
-                            Text(
-                                text = String.format(Locale.getDefault(), "GPA score: %.2f", record.gpa),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
-                            Spacer(modifier = Modifier.height(8.dp))
+                        // Slide down to show saved GPA details on click
+                        AnimatedVisibility(
+                            visible = isExpanded,
+                            enter = expandVertically(
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                expandFrom = Alignment.Top
+                            ) + fadeIn(),
+                            exit = shrinkVertically(
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                shrinkTowards = Alignment.Top
+                            ) + fadeOut()
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = dateStr,
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                            Text(
-                                "GPA Record Detail",
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 16.sp,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
+                                Text(
+                                    "GPA Record Detail",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
 
-                            // GPA detailed table
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                                    .padding(8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("S#", modifier = Modifier.weight(0.4f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                Text("Ob.marks", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                Text("T.marks", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                Text("QP", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                Text("Grade", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            }
-
-                            record.getCourses().forEachIndexed { i, course ->
+                                // GPA detailed table
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
                                         .padding(8.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text((i + 1).toString(), modifier = Modifier.weight(0.4f), fontSize = 12.sp)
-                                    Text(String.format(Locale.getDefault(), "%.1f", course.obtainedMarks), modifier = Modifier.weight(1f), fontSize = 12.sp)
-                                    Text(course.maxMarks.toString(), modifier = Modifier.weight(1f), fontSize = 12.sp)
-                                    Text(String.format(Locale.getDefault(), "%.2f", course.qualityPoints), modifier = Modifier.weight(1f), fontSize = 12.sp)
-                                    Text(course.grade, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("S#", modifier = Modifier.weight(0.4f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("Ob.marks", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("T.marks", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("QP", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("Grade", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                 }
-                                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
-                            }
 
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = String.format(Locale.getDefault(), "FINAL GPA: %.2f", record.gpa),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = {
-                                        recordToExport = record
-                                        createPngLauncher.launch("GPA_Result_${record.name}.png")
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text("Download PNG", fontSize = 12.sp)
+                                record.getCourses().forEachIndexed { i, course ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text((i + 1).toString(), modifier = Modifier.weight(0.4f), fontSize = 12.sp)
+                                        Text(String.format(Locale.getDefault(), "%.1f", course.obtainedMarks), modifier = Modifier.weight(1f), fontSize = 12.sp)
+                                        Text(course.maxMarks.toString(), modifier = Modifier.weight(1f), fontSize = 12.sp)
+                                        Text(String.format(Locale.getDefault(), "%.2f", course.qualityPoints), modifier = Modifier.weight(1f), fontSize = 12.sp)
+                                        Text(course.grade, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                    HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
                                 }
-                                OutlinedButton(
-                                    onClick = {
-                                        recordToExport = record
-                                        createPdfLauncher.launch("GPA_Report_${record.name}.pdf")
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(8.dp)
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = String.format(Locale.getDefault(), "FINAL GPA: %.2f", record.gpa),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text("Download PDF", fontSize = 12.sp)
+                                    OutlinedButton(
+                                        onClick = {
+                                            recordToExport = record
+                                            createPngLauncher.launch("GPA_Result_${record.name}.png")
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Download PNG", fontSize = 12.sp)
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            recordToExport = record
+                                            createPdfLauncher.launch("GPA_Report_${record.name}.pdf")
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Download PDF", fontSize = 12.sp)
+                                    }
                                 }
                             }
                         }
@@ -1242,12 +1269,17 @@ fun CgpaRecordsList(viewModel: CalculatorViewModel, onEditCgpa: (CgpaRecord) -> 
         ) {
             itemsIndexed(cgpaRecordsList) { _, record ->
                 val isExpanded = expandedCardId == record.id
-                val dateStr = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(java.util.Date(record.timestamp))
+                val dateStr = remember(record.timestamp) {
+                    java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(java.util.Date(record.timestamp))
+                }
 
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 8.dp)
+                        .clickable {
+                            expandedCardId = if (isExpanded) null else record.id
+                        },
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -1258,19 +1290,15 @@ fun CgpaRecordsList(viewModel: CalculatorViewModel, onEditCgpa: (CgpaRecord) -> 
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = record.name,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = dateStr,
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
-                            }
+                            Text(
+                                text = record.name,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = if (isExpanded) 2 else 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
                             Row {
                                 IconButton(onClick = { onEditCgpa(record) }) {
                                     Icon(
@@ -1297,88 +1325,98 @@ fun CgpaRecordsList(viewModel: CalculatorViewModel, onEditCgpa: (CgpaRecord) -> 
                             }
                         }
 
-                        if (!isExpanded) {
-                            Text(
-                                text = String.format(Locale.getDefault(), "CGPA score: %.2f", record.cgpa),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
-                            Spacer(modifier = Modifier.height(8.dp))
+                        // Slide down to show saved CGPA details on click
+                        AnimatedVisibility(
+                            visible = isExpanded,
+                            enter = expandVertically(
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                expandFrom = Alignment.Top
+                            ) + fadeIn(),
+                            exit = shrinkVertically(
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                shrinkTowards = Alignment.Top
+                            ) + fadeOut()
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = dateStr,
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                            Text(
-                                "CGPA Record Detail",
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 16.sp,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
+                                Text(
+                                    "CGPA Record Detail",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
 
-                            // CGPA table columns
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                                    .padding(8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Sem #", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                Text("GPA", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                Text("Credits", modifier = Modifier.weight(1.2f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            }
-
-                            record.getSemesters().forEachIndexed { index, sem ->
+                                // CGPA table columns
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
                                         .padding(8.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text("Sem ${index + 1}", modifier = Modifier.weight(1f), fontSize = 12.sp)
-                                    Text(String.format(Locale.getDefault(), "%.2f", sem.first), modifier = Modifier.weight(1f), fontSize = 12.sp)
-                                    Text(sem.second.toString(), modifier = Modifier.weight(1.2f), fontSize = 12.sp)
+                                    Text("Sem #", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("GPA", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("Credits", modifier = Modifier.weight(1.2f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                 }
-                                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
-                            }
 
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = String.format(Locale.getDefault(), "FINAL CGPA: %.2f", record.cgpa),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = {
-                                        recordToExport = record
-                                        createPngLauncher.launch("CGPA_Result_${record.name}.png")
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text("Download PNG", fontSize = 12.sp)
+                                record.getSemesters().forEachIndexed { index, sem ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Sem ${index + 1}", modifier = Modifier.weight(1f), fontSize = 12.sp)
+                                        Text(String.format(Locale.getDefault(), "%.2f", sem.first), modifier = Modifier.weight(1f), fontSize = 12.sp)
+                                        Text(sem.second.toString(), modifier = Modifier.weight(1.2f), fontSize = 12.sp)
+                                    }
+                                    HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
                                 }
-                                OutlinedButton(
-                                    onClick = {
-                                        recordToExport = record
-                                        createPdfLauncher.launch("CGPA_Report_${record.name}.pdf")
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(8.dp)
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = String.format(Locale.getDefault(), "FINAL CGPA: %.2f", record.cgpa),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text("Download PDF", fontSize = 12.sp)
+                                    OutlinedButton(
+                                        onClick = {
+                                            recordToExport = record
+                                            createPngLauncher.launch("CGPA_Result_${record.name}.png")
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Download PNG", fontSize = 12.sp)
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            recordToExport = record
+                                            createPdfLauncher.launch("CGPA_Report_${record.name}.pdf")
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Download PDF", fontSize = 12.sp)
+                                    }
                                 }
                             }
                         }
@@ -1961,7 +1999,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
             title = { Text("Reset All Data?", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F)) },
-            text = { Text("This will permanently clear all saved GPA/CGPA record histories from local storage. This action cannot be undone.") },
+            text = { Text("This will permanently clear all saved GPA/CGPA records and Keep in Mind notes from local storage. This action cannot be undone.") },
             confirmButton = {
                 Button(
                     onClick = {

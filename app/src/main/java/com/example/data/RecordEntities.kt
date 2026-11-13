@@ -63,3 +63,12 @@ data class CgpaRecord(
         }
     }
 }
+
+@Entity(tableName = "notes")
+data class NoteRecord(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val title: String = "",
+    val content: String,
+    val timestamp: Long
+)
+

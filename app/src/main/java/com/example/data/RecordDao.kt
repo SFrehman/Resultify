@@ -33,8 +33,21 @@ interface RecordDao {
     @Query("DELETE FROM cgpa_records")
     suspend fun clearCgpaRecords()
 
+    @Query("SELECT * FROM notes ORDER BY timestamp DESC")
+    fun getAllNotes(): Flow<List<NoteRecord>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNote(note: NoteRecord)
+
+    @Query("DELETE FROM notes WHERE id = :id")
+    suspend fun deleteNoteById(id: Int)
+
+    @Query("DELETE FROM notes")
+    suspend fun clearNotes()
+
     suspend fun clearAllData() {
         clearGpaRecords()
         clearCgpaRecords()
+        clearNotes()
     }
 }
